@@ -1,0 +1,22 @@
+﻿<div class="leaflet-sidebar-pane" id="geographic-files">
+    <h1 class="leaflet-sidebar-header">
+        Geographic Files
+        <span class="leaflet-sidebar-close"><i class="fa fa-caret-left"></i></span>
+    </h1>
+    <div class="alert alert-sm alert-info mt-2" role="alert">
+        <p>
+        Use this tab to display geographic features from various data files. 
+        This is meant to aid in designing WRF domains based on the locations of the displayed features. 
+        </p>
+        <p>
+        The tool currently supports GeoJSON, KMZ, KML, GPX, and WPT file formats. If additional file format is needed, please, submit a feature request on the project <a href="https://github.com/JiriRichter/WRFDomainWizard/issues" target="_blank">GitHub issues page</a>.
+        </p>
+    </div>
+    <div class="mt-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="button-geographic-file-remove"><i class="fas fa-trash-alt mr-1"></i>Remove All</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="button-geographic-file-add"><i class="fas fa-folder-open mr-1"></i>Add File</button>
+        <input id="input-geographic-file" type="file" style="display: none;" />
+    </div>
+    <div id="geographic-file-layers" class="mt-2">
+    </div>
+</div>

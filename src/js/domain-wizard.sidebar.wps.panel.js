@@ -6,7 +6,7 @@ import { WrfProjections } from "./utils/constants";
 import { degreesToMeters } from "./utils/math";
 
 export class SidebarDomainsPanel {
-    constructor(container, options) {
+    constructor(container, options, appSettings) {
 
         // controls
         var self = this, 
@@ -38,8 +38,6 @@ export class SidebarDomainsPanel {
 
         // default settings
         this.options = {
-            minGridDistanceMeters: 100,
-            minGridDistanceDegrees: 0
         };
 
         if (options) {
@@ -62,8 +60,17 @@ export class SidebarDomainsPanel {
         inputTrueLat1 = $('input[name="truelat1"]', form);
         inputTrueLat2 = $('input[name="truelat2"]', form);
         inputStandLon = $('input[name="stand_lon"]', form);
+
         inputDX = $('input[name="dx"]', form);
         inputDY = $('input[name="dy"]', form);
+
+        appSettings.on(
+            'change',
+            ['minGridDistanceMeters', 'minGridDistanceDegrees', 'allowDifferentDxDy'], 
+            (e) => {
+                setDxDyConstrains();
+            });
+
         inputPoleLat = $('input[name="pole_lat"]', form);
         inputPoleLon = $('input[name="pole_lon"]', form);
 
@@ -156,16 +163,6 @@ export class SidebarDomainsPanel {
             setGridValues();
         });
 
-        function inputToMeters(input) {
-            input.attr('min', self.options.minGridDistanceMeters);
-            input.attr('step', 1);
-        }
-
-        function inputToDegrees(input) {
-            input.attr('min', 0);
-            input.attr('step', 0.001);
-        }
-
         function showInputGroup(input, enabled) {
             const inputParent = input.parent();
             inputParent.show();
@@ -231,31 +228,63 @@ export class SidebarDomainsPanel {
                     showInputGroup(inputTrueLat1, true);
                     showInputGroup(inputTrueLat2, true);
                     showStandLon(true);
-                    inputToMeters(inputDX);
-                    inputToMeters(inputDY);
                     break;
                 case 'mercator':
                     showInputGroup(inputTrueLat1, true);
                     showStandLon(false);
-                    inputToMeters(inputDX);
-                    inputToMeters(inputDY);
                     break;
                 case 'polar':
                     showInputGroup(inputTrueLat1, true);
                     showStandLon(true);
-                    inputToMeters(inputDX);
-                    inputToMeters(inputDY);
                     break;
                 case 'lat-lon':
                     showStandLon(true, formatFloat(domain.stand_lon));
                     showPoleLatLon(false);
+                    break;
+            }
 
-                    // dx, dy in degrees
+            setDxDyConstrains();
+        }
+
+        function setDxDyConstrains() {
+
+            if (appSettings.get('allowDifferentDxDy') === true) {
+                inputDY.removeAttr('disabled','disabled');
+            }
+            else {
+                inputDY.attr('disabled','disabled');
+                inputDY.val(inputDX.val());
+            }
+
+            inputDX.on('change', (e) => {
+                if (inputDY[0].disabled === true) {
+                    inputDY.val(inputDX.val());
+                }
+            });
+
+            switch (selectMapProj.val()) {
+                case 'lambert':
+                case 'mercator':
+                case 'polar':
+                    inputToMeters(inputDX);
+                    inputToMeters(inputDY);
+                    break;
+                case 'lat-lon':
                     inputToDegrees(inputDX);
                     inputToDegrees(inputDY);
                     break;
             }
         }
+
+        function inputToMeters(input) {
+            input.attr('min', appSettings.get('minGridDistanceMeters'));
+            input.attr('step', 1);
+        }
+
+        function inputToDegrees(input) {
+            input.attr('min', appSettings.get('minGridDistanceDegrees'));
+            input.attr('step', 0.001);
+        }        
 
         // updates the tooltip on the map projection field
         function updateSelectMapProjTitle() {

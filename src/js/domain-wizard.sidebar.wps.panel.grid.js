@@ -28,8 +28,6 @@ export class SidebarDomainsPanelGrid {
 
         // default settings
         this.options = {
-            minGridDistanceMeters: 100,
-            minGridDistanceDegrees: 0
         };
 
         if (options) {

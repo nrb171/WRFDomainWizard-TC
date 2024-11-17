@@ -850,91 +850,119 @@
   var SidebarSettings = L.Class.extend({
     _map: null,
     _container: null,
-    _localStorageKey: '_wrf_domain_wizard_settings',
-    _defaultOptions: {
-      jsonBaseUrl: 'json'
-    },
-    _settings: {
-      showGraticule: {
-        id: 'showGraticule',
-        value: false,
-        dataType: 'boolean'
-      },
-      showGeographicLines: {
-        id: 'showGeographicLines',
-        value: false,
-        dataType: 'boolean'
-      }
-    },
-    _options: null,
     _controls: {},
     _graticule: null,
     _geographicLines: null,
-    initialize: function initialize(map, sidebar, options) {
-      this._options = Object.assign({}, this._defaultOptions, options);
+    initialize: function initialize(map, sidebar, appSettings) {
+      var _this = this;
       this._map = map;
       this._container = sidebar.getContainer().querySelector('#settings');
+      this._appSettings = appSettings;
       this._graticule = new AutoGraticule({
         verticalLabelOffset: 480
       });
       this._geographicLines = new GeographicLines({});
-      for (var key in this._settings) {
-        var setting = this._settings[key];
-        var value = localStorage.getItem(this._localStorageKey + "_".concat(setting.id));
-        if (value) {
-          switch (setting.dataType) {
-            case 'boolean':
-              setting.value = value === 'true';
-              break;
-            case 'int':
-              setting.value = parseInt(value);
-              break;
-            case 'float':
-              setting.value = parseFloat(value);
-              break;
-            default:
-              setting.value = value;
-              break;
+      this._addEventListeners();
+      this._setControlValues();
+      this._container.querySelector('button#reset-settings').addEventListener('click', function (e) {
+        _this._appSettings.reset();
+        _this._setControlValues();
+      });
+    },
+    _addEventListeners: function _addEventListeners() {
+      var _this2 = this;
+      var _iterator = _createForOfIteratorHelper(this._appSettings.keys()),
+        _step;
+      try {
+        var _loop = function _loop() {
+          var key = _step.value;
+          var control = _this2._container.querySelector("input[name=\"".concat(key, "\"]"));
+          if (control) {
+            _this2._controls[key] = control;
+            if (control.tagName === "INPUT") {
+              switch (control.type) {
+                case 'checkbox':
+                  control.addEventListener('click', function (e) {
+                    _this2._appSettings.set(key, e.currentTarget.checked);
+                  });
+                  break;
+                case 'number':
+                  control.addEventListener('change', function (e) {
+                    _this2._appSettings.set(key, control.value);
+                  });
+                  break;
+                case 'text':
+                  control.addEventListener('change', function (e) {
+                    _this2._appSettings.set(key, control.value);
+                  });
+                  break;
+              }
+            }
           }
+        };
+        for (_iterator.s(); !(_step = _iterator.n()).done;) {
+          _loop();
         }
-        this._controls[key] = this._container.querySelector("#".concat(setting.id));
+      } catch (err) {
+        _iterator.e(err);
+      } finally {
+        _iterator.f();
       }
-      var self = this;
-      this._settings['showGraticule'].value = false;
-      this._controls['showGraticule'].addEventListener('click', function (e) {
-        self.showGraticule(e.currentTarget.checked);
-      });
-      this.showGraticule(this._settings['showGraticule'].value);
-      this._controls['showGeographicLines'].addEventListener('click', function (e) {
-        self.showGeographicLines(e.currentTarget.checked);
-      });
-      this.showGeographicLines(this._settings['showGeographicLines'].value);
-      for (var _key in this._controls) {
-        var input = this._controls[_key];
-        if (input.tagName !== "INPUT") {
-          continue;
-        }
-        var _value = this._settings[_key].value;
-        switch (input.type) {
-          case 'checkbox':
-            input.checked = _value === true;
-            break;
-          default:
-            input.value = _value;
-            break;
-        }
+      if ('showGraticule' in this._controls) {
+        this._controls['showGraticule'].addEventListener('click', function (e) {
+          _this2._showGraticule(e.currentTarget.checked);
+        });
+      }
+      if ('showGeographicLines' in this._controls) {
+        this._controls['showGeographicLines'].addEventListener('click', function (e) {
+          _this2._showGeographicLines(e.currentTarget.checked);
+        });
       }
     },
-    showGraticule: function showGraticule(show) {
-      localStorage.setItem(this._localStorageKey + "_showGraticule", show);
+    _setControlValues: function _setControlValues() {
+      var _this3 = this;
+      var _loop2 = function _loop2(key) {
+        var control = _this3._controls[key];
+        var value = _this3._appSettings.get(key);
+        switch (control.type) {
+          case 'checkbox':
+            control.checked = value === true;
+            control.addEventListener('click', function (e) {
+              _this3._appSettings.set(key, e.currentTarget.checked);
+            });
+            break;
+          case 'number':
+            control.value = value;
+            control.addEventListener('change', function (e) {
+              _this3._appSettings.set(key, control.value);
+            });
+            break;
+          case 'text':
+            control.value = value;
+            control.addEventListener('change', function (e) {
+              _this3._appSettings.set(key, control.value);
+            });
+            break;
+        }
+      };
+      for (var key in this._controls) {
+        _loop2(key);
+      }
+      if ('showGraticule' in this._controls) {
+        this._showGraticule(this._appSettings.get('showGraticule'));
+      }
+      if ('showGeographicLines' in this._controls) {
+        this._showGeographicLines(this._appSettings.get('showGeographicLines'));
+      }
+    },
+    _showGraticule: function _showGraticule(show) {
       if (show === true) {
         this._graticule.addTo(this._map);
       } else {
         this._graticule.remove();
       }
     },
-    showGeographicLines: function showGeographicLines(show) {
-      localStorage.setItem(this._localStorageKey + "_showGeographicLines", show);
+    _showGeographicLines: function _showGeographicLines(show) {
       if (show === true) {
         this._geographicLines.addTo(this._map);
       } else {
@@ -942,8 +970,8 @@
       }
     }
   });
-  function sidebarSettings(map, sidebar, options) {
-    return new SidebarSettings(map, sidebar, options);
+  function sidebarSettings(map, sidebar, appSettings) {
+    return new SidebarSettings(map, sidebar, appSettings);
   }
 
   var MessageBoxDialog = /*#__PURE__*/function () {
@@ -27130,10 +27158,7 @@
       tableCornerNW;
 
     // default settings
-    this.options = {
-      minGridDistanceMeters: 100,
-      minGridDistanceDegrees: 0
-    };
+    this.options = {};
     if (options) {
       this.options = Object.assign(this.options, options);
     }
@@ -27766,7 +27791,7 @@
     this._mainGrid.addTo(this._map);
   };
 
-  var SidebarDomainsPanel = /*#__PURE__*/_createClass(function SidebarDomainsPanel(container, options) {
+  var SidebarDomainsPanel = /*#__PURE__*/_createClass(function SidebarDomainsPanel(container, options, appSettings) {
     _classCallCheck(this, SidebarDomainsPanel);
     // controls
     var self = this,
@@ -27797,10 +27822,7 @@
       localStorageKey = 'wrf_domain_wizard_wps_panel';
 
     // default settings
-    this.options = {
-      minGridDistanceMeters: 100,
-      minGridDistanceDegrees: 0
-    };
+    this.options = {};
     if (options) {
       this.options = Object.assign(this.options, options);
     }
@@ -27819,6 +27841,9 @@
     inputStandLon = $('input[name="stand_lon"]', form);
     inputDX = $('input[name="dx"]', form);
     inputDY = $('input[name="dy"]', form);
+    appSettings.on('change', ['minGridDistanceMeters', 'minGridDistanceDegrees', 'allowDifferentDxDy'], function (e) {
+      setDxDyConstrains();
+    });
     inputPoleLat = $('input[name="pole_lat"]', form);
     inputPoleLon = $('input[name="pole_lon"]', form);
     buttonStanLonMinus = $('#stan-lon-minus', form);
@@ -27896,14 +27921,6 @@
       }
       setGridValues();
     });
-    function inputToMeters(input) {
-      input.attr('min', self.options.minGridDistanceMeters);
-      input.attr('step', 1);
-    }
-    function inputToDegrees(input) {
-      input.attr('min', 0);
-      input.attr('step', 0.001);
-    }
     function showInputGroup(input, enabled) {
       var inputParent = input.parent();
       inputParent.show();
@@ -27956,30 +27973,54 @@
           showInputGroup(inputTrueLat1, true);
           showInputGroup(inputTrueLat2, true);
           showStandLon(true);
-          inputToMeters(inputDX);
-          inputToMeters(inputDY);
           break;
         case 'mercator':
           showInputGroup(inputTrueLat1, true);
           showStandLon(false);
-          inputToMeters(inputDX);
-          inputToMeters(inputDY);
           break;
         case 'polar':
           showInputGroup(inputTrueLat1, true);
           showStandLon(true);
-          inputToMeters(inputDX);
-          inputToMeters(inputDY);
           break;
         case 'lat-lon':
           showStandLon(true, formatFloat(domain.stand_lon));
           showPoleLatLon();
-
-          // dx, dy in degrees
+          break;
+      }
+      setDxDyConstrains();
+    }
+    function setDxDyConstrains() {
+      if (appSettings.get('allowDifferentDxDy') === true) {
+        inputDY.removeAttr('disabled', 'disabled');
+      } else {
+        inputDY.attr('disabled', 'disabled');
+        inputDY.val(inputDX.val());
+      }
+      inputDX.on('change', function (e) {
+        if (inputDY[0].disabled === true) {
+          inputDY.val(inputDX.val());
+        }
+      });
+      switch (selectMapProj.val()) {
+        case 'lambert':
+        case 'mercator':
+        case 'polar':
+          inputToMeters(inputDX);
+          inputToMeters(inputDY);
+          break;
+        case 'lat-lon':
           inputToDegrees(inputDX);
           inputToDegrees(inputDY);
           break;
       }
+    }
+    function inputToMeters(input) {
+      input.attr('min', appSettings.get('minGridDistanceMeters'));
+      input.attr('step', 1);
+    }
+    function inputToDegrees(input) {
+      input.attr('min', appSettings.get('minGridDistanceDegrees'));
+      input.attr('step', 0.001);
     }
 
     // updates the tooltip on the map projection field
@@ -30246,7 +30287,7 @@
   _defineProperty(NamelistInputDialog, "_localStorageKey", '_wrf_domain_wizard_namelist_input_dialog');
 
   var SidebarDomains = /*#__PURE__*/function () {
-    function SidebarDomains(map, sidebar, options) {
+    function SidebarDomains(map, sidebar, options, appSettings) {
       var _this = this;
       _classCallCheck(this, SidebarDomains);
       this.map = map;
@@ -30265,7 +30306,7 @@
         this.options = Object.assign({}, this.options, options);
       }
       container = $('#domains', sidebar.getContainer());
-      wpsPanel = new SidebarDomainsPanel($('#container-wps-form', container), this.options);
+      wpsPanel = new SidebarDomainsPanel($('#container-wps-form', container), this.options, appSettings);
       buttonNew = $('button#button-wps-new', container);
       buttonSave = $('button#button-wps-save', container);
       buttonReset = $('button#reset-domain', container);
@@ -30578,8 +30619,8 @@
       }
     }]);
   }();
-  function sidebarWPS(map, sidebar, options) {
-    return new SidebarDomains(map, sidebar, options);
+  function sidebarWPS(map, sidebar, options, appSettings) {
+    return new SidebarDomains(map, sidebar, options, appSettings);
   }
 
   var PersistentLayers = L.Control.Layers.extend({
@@ -30936,6 +30977,136 @@
     return new MouseCoordinates(options);
   }
 
+  var AppSettings = /*#__PURE__*/function () {
+    function AppSettings() {
+      _classCallCheck(this, AppSettings);
+      for (var key in AppSettings._settings) {
+        var setting = AppSettings._settings[key];
+        setting.value = setting.defaultValue;
+        if (setting.remember !== true) {
+          continue;
+        }
+        var value = localStorage.getItem(AppSettings._localStorageKey + "_".concat(key));
+        if (value) {
+          setting.value = this._parseSettingValue(setting, value);
+        }
+      }
+      this._eventHandlers = {
+        'change': {}
+      };
+    }
+    return _createClass(AppSettings, [{
+      key: "_parseSettingValue",
+      value: function _parseSettingValue(setting, value) {
+        switch (setting.dataType) {
+          case 'boolean':
+            return value === 'true';
+          case 'int':
+            return parseInt(value);
+          case 'float':
+            return parseFloat(value);
+        }
+        return value;
+      }
+    }, {
+      key: "_validateSettings",
+      value: function _validateSettings(key) {
+        if (!(key in AppSettings._settings)) {
+          throw new Error("Invalid setting name '".concat(key, "'"));
+        }
+      }
+    }, {
+      key: "reset",
+      value: function reset() {
+        for (var key in AppSettings._settings) {
+          var setting = AppSettings._settings[key];
+          localStorage.removeItem(AppSettings._localStorageKey + "_".concat(key));
+          this.set(key, setting.defaultValue);
+        }
+      }
+    }, {
+      key: "keys",
+      value: function keys() {
+        return Object.keys(AppSettings._settings);
+      }
+    }, {
+      key: "get",
+      value: function get(key) {
+        this._validateSettings(key);
+        return AppSettings._settings[key].value;
+      }
+    }, {
+      key: "set",
+      value: function set(key, value) {
+        var _this = this;
+        this._validateSettings(key);
+        var setting = AppSettings._settings[key];
+        if (typeof value === "string") {
+          value = this._parseSettingValue(setting, value);
+        }
+        var oldValue = AppSettings._settings[key].value;
+        if (oldValue !== value) {
+          AppSettings._settings[key].value = value;
+          if (AppSettings._settings[key].remember === true) {
+            localStorage.setItem(AppSettings._localStorageKey + "_".concat(key), value.toString());
+          }
+          if (key in this._eventHandlers['change']) {
+            this._eventHandlers['change'][key].forEach(function (handler) {
+              handler.call(_this, {
+                name: key,
+                value: value,
+                oldValue: oldValue
+              });
+            });
+          }
+        }
+      }
+    }, {
+      key: "on",
+      value: function on(eventName, settings, handler) {
+        var _this2 = this;
+        if (!(eventName in this._eventHandlers)) {
+          throw new Error("Unrecognized event name '".concat(eventName, "'"));
+        }
+        settings.forEach(function (key) {
+          if (key in _this2._eventHandlers[eventName]) {
+            _this2._eventHandlers[eventName][key].push(handler);
+          } else {
+            _this2._eventHandlers[eventName][key] = [handler];
+          }
+        });
+      }
+    }]);
+  }();
+  _defineProperty(AppSettings, "_localStorageKey", '_wrf_domain_wizard_settings');
+  _defineProperty(AppSettings, "_settings", {
+    showGraticule: {
+      defaultValue: false,
+      dataType: 'boolean',
+      remember: false
+    },
+    showGeographicLines: {
+      defaultValue: false,
+      dataType: 'boolean',
+      remember: true
+    },
+    minGridDistanceMeters: {
+      defaultValue: 1,
+      dataType: 'int',
+      remember: true
+    },
+    minGridDistanceDegrees: {
+      defaultValue: 0,
+      dataType: 'float',
+      remember: true
+    },
+    allowDifferentDxDy: {
+      defaultValue: false,
+      dataType: 'boolean',
+      remember: true
+    }
+  });
+
   /**
    * @constructor
    */
@@ -30997,15 +31168,14 @@
       // any displayed tooltip remains opened
       sidebarTabs.tooltip('hide');
     });
+    var appSettings = new AppSettings();
 
     // initialize sidebar pane controls
     sidebar['domains'] = sidebarWPS(map, sidebar, {
       jsonBaseUrl: settings.jsonBaseUrl,
       sampleBaseUrl: settings.sampleBaseUrl
-    });
-    sidebar['settings'] = sidebarSettings(map, sidebar, {
-      jsonBaseUrl: settings.jsonBaseUrl
-    });
+    }, appSettings);
+    sidebar['settings'] = sidebarSettings(map, sidebar, appSettings);
     sidebar['geographic-files'] = new SidebarGeographicFiles(map, sidebar.getContainer().querySelector('#geographic-files'));
     sidebar['elevation'] = sidebarElevationData(map, sidebar);
     sidebar['elevation'].addElevationDataOverlay('SRTM-CSI 90m (5x5,TIFF)', elevationDataSRTMCSI("".concat(settings.jsonBaseUrl, "/srtm/csi/srtm30_5x5.json"), 'TIFF', 5));
