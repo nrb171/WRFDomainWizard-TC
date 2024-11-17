@@ -5,106 +5,110 @@ export var SidebarSettings = L.Class.extend({
 
     _map: null,
     _container: null,
-    _localStorageKey: '_wrf_domain_wizard_settings',
-
-    _defaultOptions: {
-        jsonBaseUrl: 'json'
-    },
-
-    _settings: {
-        showGraticule: {
-            id: 'showGraticule',
-            value: false,
-            dataType: 'boolean'
-        },
-        showGeographicLines : {
-            id: 'showGeographicLines',
-            value: false,
-            dataType: 'boolean'
-        }
-    },
-
-    _options: null,
 
     _controls: {},
     _graticule: null,
     _geographicLines: null,
 
-    initialize: function (map, sidebar, options) {
-
-        this._options = Object.assign({}, this._defaultOptions, options);
+    initialize: function (map, sidebar, appSettings) {
 
         this._map = map;
         this._container = sidebar.getContainer().querySelector('#settings');
+        this._appSettings = appSettings;
 
         this._graticule = new AutoGraticule({
             verticalLabelOffset: 480
         });
 
         this._geographicLines = new GeographicLines({});
+        this._addEventListeners();
+        this._setControlValues();
 
-        for (const key in this._settings) {
-
-            const setting = this._settings[key];
-
-            const value = localStorage.getItem(this._localStorageKey + `_${setting.id}`);
-            if (value) {
-                switch(setting.dataType) {
-                    case 'boolean':
-                        setting.value = value === 'true';
-                        break;
-                    case 'int':
-                        setting.value = parseInt(value);
-                        break;
-                    case 'float':
-                        setting.value = parseFloat(value);
-                        break;
-                    default:
-                        setting.value = value;
-                        break;
-                }
-            }
-
-            this._controls[key] = this._container.querySelector(`#${setting.id}`);
-        }
-
-        const self = this;
-        this._settings['showGraticule'].value = false;
-
-        this._controls['showGraticule'].addEventListener('click', (e) => {
-            self.showGraticule(e.currentTarget.checked);
+        this._container.querySelector('button#reset-settings').addEventListener('click', (e) => {
+            this._appSettings.reset();
+            this._setControlValues();
         });
-        this.showGraticule(this._settings['showGraticule'].value);
-
-        this._controls['showGeographicLines'].addEventListener('click', (e) => {
-            self.showGeographicLines(e.currentTarget.checked);
-        });
-        this.showGeographicLines(this._settings['showGeographicLines'].value);
-
-
-        for (const key in this._controls) {
-
-            const input = this._controls[key];
-
-            if (input.tagName !== "INPUT") {
-                continue;
-            }
-
-            const value = this._settings[key].value;
-
-            switch(input.type) {
-                case 'checkbox':
-                    input.checked = value === true;
-                    break;
-                default:
-                    input.value = value;
-                    break;
-            }
-        }        
     },
 
-    showGraticule: function(show) {
-        localStorage.setItem(this._localStorageKey + `_showGraticule`, show);
+    _addEventListeners: function() {
+        for (const key of this._appSettings.keys()) {
+            const control = this._container.querySelector(`input[name="${key}"]`);
+            if (control) {
+                this._controls[key] = control;
+
+                if (control.tagName === "INPUT") {
+
+                    switch(control.type) {
+                        case 'checkbox':
+                            control.addEventListener('click', (e) => {
+                                this._appSettings.set(key, e.currentTarget.checked);
+                            });
+                            break;
+                        case 'number':
+                            control.addEventListener('change', (e) => {
+                                this._appSettings.set(key, control.value);
+                            });
+                            break;
+                        case 'text':
+                            control.addEventListener('change', (e) => {
+                                this._appSettings.set(key, control.value);
+                            });
+                            break;
+                    }
+                }
+            }
+        }
+
+        if ('showGraticule' in this._controls) {
+            this._controls['showGraticule'].addEventListener('click', (e) => {
+                this._showGraticule(e.currentTarget.checked);
+            });
+        }
+
+        if ('showGeographicLines' in this._controls) {
+            this._controls['showGeographicLines'].addEventListener('click', (e) => {
+                this._showGeographicLines(e.currentTarget.checked);
+            });
+        }
+    },
+
+    _setControlValues: function(){
+        for (const key in this._controls) {
+            const control = this._controls[key];
+            const value = this._appSettings.get(key);
+                
+            switch(control.type) {
+                case 'checkbox':
+                    control.checked = value === true;
+                    control.addEventListener('click', (e) => {
+                        this._appSettings.set(key, e.currentTarget.checked);
+                    });
+                    break;
+                case 'number':
+                    control.value = value;
+                    control.addEventListener('change', (e) => {
+                        this._appSettings.set(key, control.value);
+                    });
+                    break;
+                case 'text':
+                    control.value = value;
+                    control.addEventListener('change', (e) => {
+                        this._appSettings.set(key, control.value);
+                    });
+                    break;
+            }
+        }
+
+        if ('showGraticule' in this._controls) {
+            this._showGraticule(this._appSettings.get('showGraticule'));
+        }
+
+        if ('showGeographicLines' in this._controls) {
+            this._showGeographicLines(this._appSettings.get('showGeographicLines'));
+        }
+    },
+
+    _showGraticule: function(show) {
         if (show === true) {
             this._graticule.addTo(this._map);
         } else {
@@ -112,8 +116,7 @@ export var SidebarSettings = L.Class.extend({
         }
     },
 
-    showGeographicLines: function(show) {
-        localStorage.setItem(this._localStorageKey + `_showGeographicLines`, show);
+    _showGeographicLines: function(show) {
         if (show === true) {
             this._geographicLines.addTo(this._map);
         } else {
@@ -122,6 +125,6 @@ export var SidebarSettings = L.Class.extend({
     }
 });
 
-export function sidebarSettings(map, sidebar, options) {
-    return new SidebarSettings(map, sidebar, options);
+export function sidebarSettings(map, sidebar, appSettings) {
+    return new SidebarSettings(map, sidebar, appSettings);
 }

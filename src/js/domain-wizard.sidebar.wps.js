@@ -11,7 +11,7 @@ import { NamelistError } from "./utils/namelist";
 
 export class SidebarDomains {
 
-    constructor(map, sidebar, options) {
+    constructor(map, sidebar, options, appSettings) {
 
         this.map = map;
         const self = this;
@@ -42,7 +42,7 @@ export class SidebarDomains {
         }
 
         container = $('#domains', sidebar.getContainer());
-        wpsPanel = new SidebarDomainsPanel($('#container-wps-form', container), this.options);
+        wpsPanel = new SidebarDomainsPanel($('#container-wps-form', container), this.options, appSettings);
 
         buttonNew = $('button#button-wps-new', container);
         buttonSave = $('button#button-wps-save', container);
@@ -407,6 +407,6 @@ export class SidebarDomains {
     }
 }
 
-export function sidebarWPS(map, sidebar, options) {
-    return new SidebarDomains(map, sidebar, options);
+export function sidebarWPS(map, sidebar, options, appSettings) {
+    return new SidebarDomains(map, sidebar, options, appSettings);
 }

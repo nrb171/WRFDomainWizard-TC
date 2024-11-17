@@ -7,6 +7,7 @@ import { elevationDataALOS } from './leaflet/leaflet.elevation-data.alos';
 import { elevationDataSRTMCSI } from './leaflet/leaflet.elevation-data.srtm-csi';
 import { elevationDataSRTMNASAV3 } from './leaflet/leaflet.elevation-data.srtm-nasa-v3';
 import { mouseCoordinates } from './leaflet/leaflet.control.mouse-coordinates';
+import { AppSettings } from "./domain-wizard.app.settings";
 
 /**
  * @constructor
@@ -82,18 +83,22 @@ export class DomainWizard {
             sidebarTabs.tooltip('hide');
         })
 
+        const appSettings= new AppSettings();
+
         // initialize sidebar pane controls
-        sidebar['domains'] = sidebarWPS(map, sidebar, {
-            jsonBaseUrl: settings.jsonBaseUrl,
-            sampleBaseUrl: settings.sampleBaseUrl
-        });
+        sidebar['domains'] = sidebarWPS(
+            map, 
+            sidebar, 
+            {
+                jsonBaseUrl: settings.jsonBaseUrl,
+                sampleBaseUrl: settings.sampleBaseUrl
+            },
+            appSettings);
 
         sidebar['settings'] = sidebarSettings(
             map,
             sidebar,
-            {
-                jsonBaseUrl: settings.jsonBaseUrl
-            });
+            appSettings);
 
         sidebar['geographic-files'] = new SidebarGeographicFiles(map, sidebar.getContainer().querySelector('#geographic-files'));
 

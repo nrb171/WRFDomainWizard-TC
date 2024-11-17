@@ -19,6 +19,38 @@ const replacements = (baseUrl) => [{
 {
   from: '{{dialog.namelist-input}}',
   to: '<%= dialogNamelistInput() %>'
+},
+{
+  from: '{{dialog.capture-image}}',
+  to: '<%= dialogCaptureImage() %>'
+},
+{
+  from: '{{dialog.geog-data-res}}',
+  to: '<%= dialogGeogDataRes() %>'
+},
+{
+  from: '{{dialog.wps-save}}',
+  to: '<%= dialogWpsSave() %>'
+},
+{
+  from: '{{sidebar.about}}',
+  to: '<%= sidebarAbout() %>'
+},
+{
+  from: '{{sidebar.domains}}',
+  to: '<%= sidebarDomains() %>'
+},
+{
+  from: '{{sidebar.elevation-data}}',
+  to: '<%= sidebarElevationData() %>'
+},
+{
+  from: '{{sidebar.geographic-files}}',
+  to: '<%= sidebarGeographicFiles() %>'
+},
+{
+  from: '{{sidebar.settings}}',
+  to: '<%= sidebarSettings() %>'
 }];
 
 module.exports = function(grunt) {
@@ -30,8 +62,18 @@ module.exports = function(grunt) {
     targetFolder: "build",
 
     analytics: grunt.file.exists(analyticsFile) ? grunt.file.read(analyticsFile) : '',
+    
     dialogMessageBox: () => grunt.file.read('src/dialog.message-box.html'),
     dialogNamelistInput: () => grunt.file.read('src/dialog.namelist-input.html'),
+    dialogCaptureImage: () => grunt.file.read('src/dialog.capture-image.html'),
+    dialogGeogDataRes: () => grunt.file.read('src/dialog.geog-data-res.html'),
+    dialogWpsSave: () => grunt.file.read('src/dialog.wps-save.html'),
+
+    sidebarAbout: () => grunt.file.read('src/sidebar.about.html'),
+    sidebarDomains: () => grunt.file.read('src/sidebar.domains.html'),
+    sidebarElevationData: () => grunt.file.read('src/sidebar.elevation-data.html'),
+    sidebarGeographicFiles: () => grunt.file.read('src/sidebar.geographic-files.html'),
+    sidebarSettings: () => grunt.file.read('src/sidebar.settings.html'),
 
     clean: [
       '<%= targetFolder %>'
