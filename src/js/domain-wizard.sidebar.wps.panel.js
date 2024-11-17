@@ -68,8 +68,15 @@ export class SidebarDomainsPanel {
             'change',
             ['minGridDistanceMeters', 'minGridDistanceDegrees', 'allowDifferentDxDy'], 
             (e) => {
-                setDxDyConstrains();
+                configureDxDyFields(selectMapProj.val());
             });
+
+        // DY is disabled in some cases and is expected to have the same value as DX
+        inputDX.on('change', (e) => {
+            if (inputDY[0].disabled === true) {
+                inputDY.val(inputDX.val());
+            }
+        });
 
         inputPoleLat = $('input[name="pole_lat"]', form);
         inputPoleLon = $('input[name="pole_lon"]', form);
@@ -242,37 +249,35 @@ export class SidebarDomainsPanel {
                     showPoleLatLon(false);
                     break;
             }
-
-            setDxDyConstrains();
         }
 
-        function setDxDyConstrains() {
+        function configureDxDyFields(map_proj) {
 
-            if (appSettings.get('allowDifferentDxDy') === true) {
+            let allowDifferentDxDy = false;
+
+            if (map_proj === WrfProjections.latlon) {
+                inputToDegrees(inputDX);
+                inputToDegrees(inputDY);
+
+                // DX and DY can always be different
+                allowDifferentDxDy = true;
+            }
+            else {
+                inputToMeters(inputDX);
+                inputToMeters(inputDY);
+
+                //allowDifferentDxDy setting can override the default behavior where DX and DY are the same except for lat-lon projection
+                allowDifferentDxDy = appSettings.get('allowDifferentDxDy') === true;
+            }
+
+            if (allowDifferentDxDy === true) {
+                // enable DY
                 inputDY.removeAttr('disabled','disabled');
             }
             else {
+                // disable DY and set its value to DX
                 inputDY.attr('disabled','disabled');
                 inputDY.val(inputDX.val());
-            }
-
-            inputDX.on('change', (e) => {
-                if (inputDY[0].disabled === true) {
-                    inputDY.val(inputDX.val());
-                }
-            });
-
-            switch (selectMapProj.val()) {
-                case 'lambert':
-                case 'mercator':
-                case 'polar':
-                    inputToMeters(inputDX);
-                    inputToMeters(inputDY);
-                    break;
-                case 'lat-lon':
-                    inputToDegrees(inputDX);
-                    inputToDegrees(inputDY);
-                    break;
             }
         }
 
@@ -300,7 +305,9 @@ export class SidebarDomainsPanel {
                 configFieldsForProjection();
                 setGridValues();
             } else {
-                initializeDxDyFields(selectMapProj.val());
+                const map_proj = selectMapProj.val();
+                configureDxDyFields(map_proj)
+                initializeDxDyFields(map_proj);
             }
             updateSelectMapProjTitle();
         });
@@ -534,6 +541,7 @@ export class SidebarDomainsPanel {
 
             disableMapProjectionSelect();
             setFieldValues();
+            configureDxDyFields(domain.map_proj);
             configFieldsForProjection();
             initializedForDomain = true;
         }
@@ -549,14 +557,10 @@ export class SidebarDomainsPanel {
         // configures DX/DY for selected projection and sets the default value
         function initializeDxDyFields(map_proj) {
             if (map_proj === WrfProjections.latlon) {
-                inputToDegrees(inputDX);
-                inputToDegrees(inputDY);
                 inputDX.val(localStorage.getItem(localStorageKey + 'dx.lat-lon') || 0.1);
                 inputDY.val(localStorage.getItem(localStorageKey + 'dy.lat-lon') || 0.1);
             }
             else {
-                inputToMeters(inputDX);
-                inputToMeters(inputDY);
                 inputDX.val(localStorage.getItem(localStorageKey + 'dx') || 12000);
                 inputDY.val(localStorage.getItem(localStorageKey + 'dy') || 12000);
             }
@@ -589,6 +593,7 @@ export class SidebarDomainsPanel {
 
             var map_proj = localStorage.getItem(localStorageKey + 'map_proj') || 'lambert';
             selectMapProj.val(map_proj);
+            configureDxDyFields(map_proj);
             initializeDxDyFields(map_proj);
 
             container.show();

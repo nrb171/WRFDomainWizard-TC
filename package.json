@@ -10,7 +10,7 @@
     "rollup": "rollup -c rollup.config.mjs",
     "grunt": "grunt",
     "uglify": "uglifyjs build/js/wrf-domain-wizard.js -c -m -o build/js/wrf-domain-wizard.min.js --source-map filename=build/js/wrf-domain-wizard.min.js.map --comments",
-    "serve": "live-server . --open=index.html#lat-lon_region --verbose --watch=build,index.html --wait=1000",
+    "serve": "live-server . --open=index.html --verbose --watch=build,index.html --wait=1000",
     "serve-namelist": "live-server . --open=namelist.input.html#test --verbose --watch=build,index.html --wait=1000",
     "serve-test": "live-server . --open=test/test.html --verbose --watch=build,test.html --wait=1000",
     "watch-js": "rollup --config rollup.config.mjs --watch",
