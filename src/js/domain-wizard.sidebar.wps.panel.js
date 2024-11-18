@@ -562,7 +562,12 @@ export class SidebarDomainsPanel {
             }
             else {
                 inputDX.val(localStorage.getItem(localStorageKey + 'dx') || 12000);
-                inputDY.val(localStorage.getItem(localStorageKey + 'dy') || 12000);
+                if (inputDY[0].disabled === true) {
+                    inputDY.val(inputDX.val());
+                }
+                else {
+                    inputDY.val(localStorage.getItem(localStorageKey + 'dy') || 12000);
+                }
             }
         }
 
