@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="/lib/bootstrap-datetimepicker.min.css" />
     <link rel="stylesheet" href="/lib/bootstrap-select.min.css" />
     
-    <link rel="stylesheet" href="/css/wrf-domain-wizard.css?1731901564350" />
+    <link rel="stylesheet" href="/css/wrf-domain-wizard.css?1781110988287" />
 
     <link rel="icon" href="/img/globe_32x32.png" />
 
@@ -32,6 +32,7 @@
             <div class="leaflet-sidebar-tabs">
                 <ul role="tablist"> <!-- top aligned tabs -->
                     <li title="WRF domains"><a href="#domains" role="tab"><i class="fas fa-vector-square"></i></a></li>
+                    <li title="Tropical cyclone simulation setup"><a href="#tropical-cyclone" role="tab"><i class="fas fa-wind"></i></a></li>
                     <li title="Satellite elevation data overlay"><a href="#elevation-data" role="tab"><i class="fas fa-satellite"></i></a></li>
                     <li title="Geographic files"><a href="#geographic-files" role="tab"><i class="fas fa-map-marked-alt"></i></a></li>
                     <li title="Domain wizard settings"><a href="#settings" role="tab"><i class="fas fa-cog"></i></a></li>
@@ -255,6 +256,132 @@
             </div>
         </form>
     </div>
+</div>
+
+                <div class="leaflet-sidebar-pane" id="tropical-cyclone">
+    <h1 class="leaflet-sidebar-header">
+        Tropical Cyclone
+        <span class="leaflet-sidebar-close"><i class="fa fa-caret-left"></i></span>
+    </h1>
+
+    <div class="alert alert-sm alert-info mt-2" role="alert">
+        Upload a GeoJSON storm track, choose the simulation window and nest structure,
+        and the wizard will size d01 so the vortex-following nests (d02&hellip;dN) stay inside it
+        along the entire track.
+    </div>
+
+    <div class="mt-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="button-tc-track-open">
+            <i class="fas fa-folder-open mr-1"></i>Open Track
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="button-tc-track-remove" disabled>
+            <i class="fas fa-trash-alt mr-1"></i>Remove
+        </button>
+        <input id="input-tc-track-file" type="file" accept=".geojson,.json" style="display: none;" />
+    </div>
+
+    <div id="tc-track-info" class="mt-2" style="display: none;">
+        <div class="tc-storm-name"><i class="fas fa-wind mr-1"></i><span id="tc-storm-name"></span></div>
+        <div class="tc-storm-period text-muted small" id="tc-storm-period"></div>
+        <div class="input-group input-group-sm mt-1">
+            <div class="input-group-prepend">
+                <span class="input-group-text" style="width: 139px" title="Units of the vmax property in the track file, used for Saffir-Simpson classification">wind units</span>
+            </div>
+            <select id="tc-wind-units" class="form-control">
+                <option value="ms" selected>m/s</option>
+                <option value="kt">kt</option>
+                <option value="mph">mph</option>
+            </select>
+        </div>
+    </div>
+
+    <form id="tc-form" class="needs-validation mt-2" novalidate style="display: none;">
+
+        <h5 class="border-bottom mt-3">Simulation window</h5>
+        <p class="text-muted small mb-1">
+            Click a track point on the map and use <em>Set as start/end</em>, or type times (UTC) below.
+        </p>
+        <div class="input-group input-group-sm">
+            <div class="input-group-prepend">
+                <span class="input-group-text" style="width: 60px" title="Simulation start time (UTC)">start</span>
+            </div>
+            <input name="tc_start" id="tc-start" type="datetime-local" class="form-control" required step="3600">
+        </div>
+        <div class="input-group input-group-sm">
+            <div class="input-group-prepend">
+                <span class="input-group-text" style="width: 60px" title="Simulation end time (UTC)">end</span>
+            </div>
+            <input name="tc_end" id="tc-end" type="datetime-local" class="form-control" required step="3600">
+        </div>
+
+        <h5 class="border-bottom mt-3">Domain structure</h5>
+        <div class="input-group input-group-sm">
+            <div class="input-group-prepend">
+                <span class="input-group-text" style="width: 139px" title="Total number of domains including d01">max_dom</span>
+            </div>
+            <select name="tc_max_dom" id="tc-max-dom" class="form-control">
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+            </select>
+        </div>
+        <div class="input-group input-group-sm">
+            <div class="input-group-prepend">
+                <span class="input-group-text" style="width: 139px" title="Grid spacing of the outermost domain in meters">d01 dx (m)</span>
+            </div>
+            <input name="tc_dx" id="tc-dx" type="number" class="form-control" required min="1000" step="1000" value="27000">
+            <div class="invalid-feedback">Enter d01 grid spacing in meters (&ge; 1000)</div>
+        </div>
+        <div class="input-group input-group-sm">
+            <div class="input-group-prepend">
+                <span class="input-group-text" style="width: 139px" title="Nesting ratio between consecutive domains">parent_grid_ratio</span>
+            </div>
+            <select name="tc_ratio" id="tc-ratio" class="form-control">
+                <option value="3" selected>3</option>
+                <option value="5">5</option>
+            </select>
+        </div>
+        <div class="input-group input-group-sm">
+            <div class="input-group-prepend">
+                <span class="input-group-text" style="width: 139px" title="Extra d01 grid cells added on each side beyond the area swept by the moving d02">buffer (d01 cells)</span>
+            </div>
+            <input name="tc_buffer" id="tc-buffer" type="number" class="form-control" required min="5" max="100" value="10">
+            <div class="invalid-feedback">Enter a buffer between 5 and 100 cells</div>
+        </div>
+
+        <div id="tc-nest-sizes" class="mt-2">
+            <!-- per-nest size inputs generated by JS -->
+        </div>
+
+        <h5 class="border-bottom mt-3">Vortex following</h5>
+        <div class="input-group input-group-sm">
+            <div class="input-group-prepend">
+                <span class="input-group-text" style="width: 139px" title="Minutes between vortex position recalculations (namelist.input vortex_interval)">vortex_interval</span>
+            </div>
+            <input name="tc_vortex_interval" id="tc-vortex-interval" type="number" class="form-control" min="1" value="15">
+        </div>
+        <div class="input-group input-group-sm">
+            <div class="input-group-prepend">
+                <span class="input-group-text" style="width: 139px" title="Maximum assumed vortex translation speed in m/s (namelist.input max_vortex_speed)">max_vortex_speed</span>
+            </div>
+            <input name="tc_max_vortex_speed" id="tc-max-vortex-speed" type="number" class="form-control" min="1" value="40">
+        </div>
+        <div class="input-group input-group-sm">
+            <div class="input-group-prepend">
+                <span class="input-group-text" style="width: 139px" title="Number of parent cells the moving nest is kept away from the parent boundary (namelist.input corral_dist)">corral_dist</span>
+            </div>
+            <input name="tc_corral_dist" id="tc-corral-dist" type="number" class="form-control" min="1" value="8">
+        </div>
+
+        <div id="tc-summary" class="mt-2" style="display: none;"></div>
+        <div id="tc-warnings" class="mt-2"></div>
+
+        <div class="leaflet-sidebar-pane-bottom">
+            <button id="tc-build-domains" type="button" class="btn btn-primary btn-sm" title="Compute the domain layout and load it into the Domains panel">Build Domains</button>
+            <button id="tc-save-namelist-input" type="button" class="btn btn-info btn-sm" disabled title="Download a vortex-following namelist.input">namelist.input</button>
+        </div>
+    </form>
 </div>
 
                 <div class="leaflet-sidebar-pane" id="geographic-files">

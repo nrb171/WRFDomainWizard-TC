@@ -1,4 +1,5 @@
 import { sidebarElevationData } from './domain-wizard.sidebar.elevation-data';
+import { sidebarTropicalCyclone } from './domain-wizard.sidebar.tc';
 import { sidebarSettings } from './domain-wizard.sidebar.settings';
 import { SidebarGeographicFiles } from './domain-wizard.sidebar.geographic-files';
 import { sidebarWPS } from './domain-wizard.sidebar.wps';
@@ -94,6 +95,11 @@ export class DomainWizard {
                 sampleBaseUrl: settings.sampleBaseUrl
             },
             appSettings);
+
+        sidebar['tropical-cyclone'] = sidebarTropicalCyclone(
+            map,
+            sidebar,
+            sidebar['domains']);
 
         sidebar['settings'] = sidebarSettings(
             map,

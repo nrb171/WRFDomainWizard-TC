@@ -41,6 +41,10 @@ const replacements = (baseUrl) => [{
   to: '<%= sidebarDomains() %>'
 },
 {
+  from: '{{sidebar.tropical-cyclone}}',
+  to: '<%= sidebarTropicalCyclone() %>'
+},
+{
   from: '{{sidebar.elevation-data}}',
   to: '<%= sidebarElevationData() %>'
 },
@@ -71,6 +75,7 @@ module.exports = function(grunt) {
 
     sidebarAbout: () => grunt.file.read('src/sidebar.about.html'),
     sidebarDomains: () => grunt.file.read('src/sidebar.domains.html'),
+    sidebarTropicalCyclone: () => grunt.file.read('src/sidebar.tc.html'),
     sidebarElevationData: () => grunt.file.read('src/sidebar.elevation-data.html'),
     sidebarGeographicFiles: () => grunt.file.read('src/sidebar.geographic-files.html'),
     sidebarSettings: () => grunt.file.read('src/sidebar.settings.html'),
@@ -201,7 +206,8 @@ module.exports = function(grunt) {
         expand: true,
         src: [
           'samples/**/*.wps',
-          'samples/**/*.json'
+          'samples/**/*.json',
+          'samples/**/*.geojson'
         ],
         dest: '<%= targetFolder %>/',
       }

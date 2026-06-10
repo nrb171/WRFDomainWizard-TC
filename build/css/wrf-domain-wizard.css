@@ -771,3 +771,70 @@ div.namelist-input-editor div.namelist-input-group.namelist-input-group-unset.na
   padding-left: 2px;
   text-shadow: -2px 0 #FFFFFF, 0 2px #FFFFFF, 2px 0 #FFFFFF, 0 -2px #FFFFFF;
 }
+/* Tropical cyclone storm track layer and sidebar panel */
+.storm-track-legend {
+  background: rgba(255, 255, 255, 0.92);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 4px;
+}
+.storm-track-legend .storm-track-legend-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.storm-track-legend .storm-track-legend-row {
+  display: flex;
+  align-items: center;
+}
+.storm-track-legend .storm-track-legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #333;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.storm-track-popup .storm-track-popup-table {
+  width: 100%;
+  margin-bottom: 6px;
+}
+.storm-track-popup .storm-track-popup-table th {
+  border-bottom: 1px solid #ccc;
+}
+.storm-track-popup .storm-track-popup-table td:first-child {
+  color: #666;
+  padding-right: 8px;
+}
+.storm-track-popup .storm-track-cat {
+  display: inline-block;
+  min-width: 22px;
+  text-align: center;
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: bold;
+}
+.storm-track-popup .storm-track-popup-buttons {
+  text-align: center;
+}
+#tropical-cyclone .tc-storm-name {
+  font-weight: bold;
+  font-size: 1.1em;
+}
+#tropical-cyclone .tc-summary-table {
+  font-size: 0.85em;
+  margin-bottom: 4px;
+}
+#tropical-cyclone .tc-summary-table td,
+#tropical-cyclone .tc-summary-table th {
+  padding: 2px 6px;
+}
+#tropical-cyclone .tc-moving-icon {
+  color: #007bff;
+  font-size: 0.85em;
+}
+#tropical-cyclone h5 {
+  font-size: 1rem;
+  padding-bottom: 2px;
+}

@@ -324,6 +324,24 @@ export class SidebarDomains {
             initNewDomain();
         });
 
+        /**
+         * Load a WPSNamelist object programmatically (used by the
+         * Tropical Cyclone panel) and draw its domains.
+         * @param {WPSNamelist} namelist
+         */
+        this.loadNamelist = function (namelist) {
+            endNewDomain();
+            removeDomain();
+            try {
+                wpsNamelist = namelist;
+                sidebar.open('domains');
+                createDomainFromNamelist(true);
+            }
+            catch (error) {
+                _handleWPSNamelistError(error);
+            }
+        };
+
         // a list of leaflet feature groups containing markers for sample geogrid outpput files
         this._geogridCornerMarkerGroups = [];
 

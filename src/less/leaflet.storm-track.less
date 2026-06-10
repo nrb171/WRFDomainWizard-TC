@@ -1,0 +1,84 @@
+/* Tropical cyclone storm track layer and sidebar panel */
+
+.storm-track-legend {
+    background: rgba(255, 255, 255, 0.92);
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 4px;
+
+    .storm-track-legend-title {
+        font-weight: bold;
+        margin-bottom: 4px;
+    }
+
+    .storm-track-legend-row {
+        display: flex;
+        align-items: center;
+    }
+
+    .storm-track-legend-swatch {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 1px solid #333;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+}
+
+.storm-track-popup {
+    .storm-track-popup-table {
+        width: 100%;
+        margin-bottom: 6px;
+
+        th {
+            border-bottom: 1px solid #ccc;
+        }
+
+        td:first-child {
+            color: #666;
+            padding-right: 8px;
+        }
+    }
+
+    .storm-track-cat {
+        display: inline-block;
+        min-width: 22px;
+        text-align: center;
+        border: 1px solid #333;
+        border-radius: 3px;
+        padding: 0 2px;
+        font-weight: bold;
+    }
+
+    .storm-track-popup-buttons {
+        text-align: center;
+    }
+}
+
+#tropical-cyclone {
+    .tc-storm-name {
+        font-weight: bold;
+        font-size: 1.1em;
+    }
+
+    .tc-summary-table {
+        font-size: 0.85em;
+        margin-bottom: 4px;
+
+        td, th {
+            padding: 2px 6px;
+        }
+    }
+
+    .tc-moving-icon {
+        color: #007bff;
+        font-size: 0.85em;
+    }
+
+    h5 {
+        font-size: 1rem;
+        padding-bottom: 2px;
+    }
+}
