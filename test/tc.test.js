@@ -74,6 +74,50 @@ describe('parseStormTrack', () => {
         expect(() => parseStormTrack('{"type": "Feature"}')).toThrow();
         expect(() => parseStormTrack('{"type": "FeatureCollection", "features": []}')).toThrow();
     });
+
+    test('coerces string-typed coordinates and properties to numbers', () => {
+        const features = [];
+        for (let i = 0; i < 3; i++) {
+            features.push({
+                type: 'Feature',
+                properties: { name: 'X', time: `2017-09-1${i} 00:00:00`, vmax: '30.5', mslp: '990' },
+                geometry: { type: 'Point', coordinates: [String(-50 - i), String(12 + i)] }
+            });
+        }
+        const points = parseStormTrack(JSON.stringify({ type: 'FeatureCollection', features }));
+        expect(typeof points[0].lat).toBe('number');
+        expect(points[0].lat).toBeCloseTo(12);
+        expect(points[0].lon).toBeCloseTo(-50);
+        expect(points[0].vmax).toBeCloseTo(30.5);
+        expect(points[0].mslp).toBe(990);
+
+        // and the full pipeline works with such a track
+        const layout = computeTCDomains({
+            track: points,
+            startTime: '2017-09-10 00:00:00',
+            endTime: '2017-09-12 00:00:00',
+            maxDom: 2,
+            dx01: 27000,
+            ratio: 3,
+            nestSizesKm: [500],
+            bufferCells: 10
+        });
+        expect(isFinite(layout.ref_lat)).toBe(true);
+        expect(Number.isInteger(layout.domains[1].i_parent_start)).toBe(true);
+    });
+
+    test('rejects non-numeric or out-of-range coordinates with a clear message', () => {
+        const make = (coordinates) => JSON.stringify({
+            type: 'FeatureCollection',
+            features: [
+                { type: 'Feature', properties: { time: '2017-09-10 00:00:00' }, geometry: { type: 'Point', coordinates } },
+                { type: 'Feature', properties: { time: '2017-09-11 00:00:00' }, geometry: { type: 'Point', coordinates: [-50, 12] } }
+            ]
+        });
+        expect(() => parseStormTrack(make(['abc', 12]))).toThrow(/not a number/);
+        expect(() => parseStormTrack(make([null, 12]))).toThrow(/missing coordinates/);
+        expect(() => parseStormTrack(make([-50, 95]))).toThrow(/out-of-range/);
+    });
 });
 
 describe('trackPositionAt', () => {

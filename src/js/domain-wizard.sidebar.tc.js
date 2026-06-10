@@ -145,11 +145,10 @@ export class SidebarTropicalCyclone {
                 buttonSaveNamelistInput.disabled = false;
             }
             catch (error) {
-                if (error instanceof StormTrackError) {
-                    errorMessageBox('Domain Setup Error', error.message);
-                }
-                else {
-                    throw error;
+                errorMessageBox('Domain Setup Error', error.message || String(error));
+                if (!(error instanceof StormTrackError)) {
+                    // unexpected - keep details in the console for debugging
+                    console.error(error);
                 }
             }
         });

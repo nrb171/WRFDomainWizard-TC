@@ -14,7 +14,7 @@ export class WrfProjection {
             map_proj: null,
             ref_lat: null,
             ref_lon: null,
-            truelat1: null, 
+            truelat1: null,
             truelat2: null,
             stand_lon: null,
             dx: null,
@@ -23,6 +23,38 @@ export class WrfProjection {
             e_sn: null
         },
         params);
+
+        // validate that the parameters required by the selected projection
+        // are finite numbers; without this check, NaN/undefined values
+        // propagate silently through proj4 and surface much later as
+        // cryptic 'Invalid IJ coordinates' errors
+        const requireFinite = (names) => {
+            for (const name of names) {
+                const raw = this._params[name];
+                const value = (raw === null || raw === undefined || raw === '') ? NaN : Number(raw);
+                if (!isFinite(value)) {
+                    throw new Error(
+                        `Projection '${this._params.map_proj}' requires a finite value ` +
+                        `for ${name}, but got '${this._params[name]}'`);
+                }
+                this._params[name] = value;
+            }
+        };
+
+        switch (this._params.map_proj) {
+            case WrfProjections.lambert:
+                requireFinite(['ref_lat', 'truelat1', 'truelat2', 'stand_lon']);
+                break;
+            case WrfProjections.mercator:
+                requireFinite(['truelat1']);
+                break;
+            case WrfProjections.polar:
+                requireFinite(['truelat1', 'stand_lon']);
+                break;
+            case WrfProjections.latlon:
+                requireFinite(['stand_lon']);
+                break;
+        }
 
         switch (this._params.map_proj) {
 
@@ -99,27 +131,41 @@ export class WrfProjection {
 
     latlon_to_ij(lat, lon) {
 
-        if (isNaN(lat) || isNaN(lon)) {
-            throw new Error('Invalid lat-lon coordinates');
+        if (!isFinite(lat) || !isFinite(lon)) {
+            throw new Error(`Invalid lat-lon coordinates (${lat}, ${lon})`);
         }
 
-        return proj4(
+        const ij = proj4(
             WrfProjection._wrf_proj,
             this._proj4,
-            [lon, lat]);
+            [Number(lon), Number(lat)]);
+
+        if (!isFinite(ij[0]) || !isFinite(ij[1])) {
+            throw new Error(
+                `Projection of (${lat}, ${lon}) failed for '${this._params.map_proj}'; ` +
+                'check the projection parameters');
+        }
+
+        return ij;
     }
 
     ij_to_latlon(i, j) {
 
-        if (isNaN(i) || isNaN(j)) {
-            throw new Error('Invalid IJ coordinates');
+        if (!isFinite(i) || !isFinite(j)) {
+            throw new Error(`Invalid IJ coordinates (${i}, ${j})`);
         }
 
         var lonlat = proj4(
             this._proj4,
             WrfProjection._wrf_proj,
-            [ i, j ]);
+            [Number(i), Number(j)]);
+
+        if (!isFinite(lonlat[0]) || !isFinite(lonlat[1])) {
+            throw new Error(
+                `Inverse projection of (${i}, ${j}) failed for '${this._params.map_proj}'; ` +
+                'check the projection parameters');
+        }
 
         return [lonlat[1], lonlat[0]];
-    }    
+    }
 }

@@ -8308,6 +8308,7 @@
   // PROJ4 strings based on https://github.com/NCAR/wrf-python/blob/develop/src/wrf/projection.py
   var WrfProjection = /*#__PURE__*/function () {
     function WrfProjection(params) {
+      var _this = this;
       _classCallCheck(this, WrfProjection);
       this._params = Object.assign({
         map_proj: null,
@@ -8321,6 +8322,44 @@
         e_we: null,
         e_sn: null
       }, params);
+
+      // validate that the parameters required by the selected projection
+      // are finite numbers; without this check, NaN/undefined values
+      // propagate silently through proj4 and surface much later as
+      // cryptic 'Invalid IJ coordinates' errors
+      var requireFinite = function requireFinite(names) {
+        var _iterator = _createForOfIteratorHelper(names),
+          _step;
+        try {
+          for (_iterator.s(); !(_step = _iterator.n()).done;) {
+            var name = _step.value;
+            var raw = _this._params[name];
+            var value = raw === null || raw === undefined || raw === '' ? NaN : Number(raw);
+            if (!isFinite(value)) {
+              throw new Error("Projection '".concat(_this._params.map_proj, "' requires a finite value ") + "for ".concat(name, ", but got '").concat(_this._params[name], "'"));
+            }
+            _this._params[name] = value;
+          }
+        } catch (err) {
+          _iterator.e(err);
+        } finally {
+          _iterator.f();
+        }
+      };
+      switch (this._params.map_proj) {
+        case WrfProjections.lambert:
+          requireFinite(['ref_lat', 'truelat1', 'truelat2', 'stand_lon']);
+          break;
+        case WrfProjections.mercator:
+          requireFinite(['truelat1']);
+          break;
+        case WrfProjections.polar:
+          requireFinite(['truelat1', 'stand_lon']);
+          break;
+        case WrfProjections.latlon:
+          requireFinite(['stand_lon']);
+          break;
+      }
       switch (this._params.map_proj) {
         // Lambert Conformal Conic
         case WrfProjections.lambert:
@@ -8362,18 +8401,25 @@
     }, {
       key: "latlon_to_ij",
       value: function latlon_to_ij(lat, lon) {
-        if (isNaN(lat) || isNaN(lon)) {
-          throw new Error('Invalid lat-lon coordinates');
+        if (!isFinite(lat) || !isFinite(lon)) {
+          throw new Error("Invalid lat-lon coordinates (".concat(lat, ", ").concat(lon, ")"));
         }
-        return proj4(WrfProjection._wrf_proj, this._proj4, [lon, lat]);
+        var ij = proj4(WrfProjection._wrf_proj, this._proj4, [Number(lon), Number(lat)]);
+        if (!isFinite(ij[0]) || !isFinite(ij[1])) {
+          throw new Error("Projection of (".concat(lat, ", ").concat(lon, ") failed for '").concat(this._params.map_proj, "'; ") + 'check the projection parameters');
+        }
+        return ij;
       }
     }, {
       key: "ij_to_latlon",
       value: function ij_to_latlon(i, j) {
-        if (isNaN(i) || isNaN(j)) {
-          throw new Error('Invalid IJ coordinates');
+        if (!isFinite(i) || !isFinite(j)) {
+          throw new Error("Invalid IJ coordinates (".concat(i, ", ").concat(j, ")"));
         }
-        var lonlat = proj4(this._proj4, WrfProjection._wrf_proj, [i, j]);
+        var lonlat = proj4(this._proj4, WrfProjection._wrf_proj, [Number(i), Number(j)]);
+        if (!isFinite(lonlat[0]) || !isFinite(lonlat[1])) {
+          throw new Error("Inverse projection of (".concat(i, ", ").concat(j, ") failed for '").concat(this._params.map_proj, "'; ") + 'check the projection parameters');
+        }
         return [lonlat[1], lonlat[0]];
       }
     }]);
@@ -9353,33 +9399,45 @@
       }
       return null;
     };
-    var points = [];
-    var _iterator3 = _createForOfIteratorHelper(geojson.features),
-      _step3;
-    try {
-      for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
-        var feature = _step3.value;
-        if (!feature.geometry || feature.geometry.type !== 'Point') {
-          continue;
-        }
-        var props = feature.properties || {};
-        var time = getProp(props, ['time', 'datetime', 'date', 'iso_time']);
-        if (time === null) {
-          continue;
-        }
-        points.push({
-          time: parseTrackTime(time),
-          lon: feature.geometry.coordinates[0],
-          lat: feature.geometry.coordinates[1],
-          vmax: getProp(props, ['vmax', 'wind', 'max_wind', 'usa_wind']),
-          mslp: getProp(props, ['mslp', 'pressure', 'pres', 'usa_pres']),
-          name: getProp(props, ['name', 'storm', 'storm_name'])
-        });
+
+    // coerce to number; null stays null, non-numeric values throw
+    var toNumber = function toNumber(value, what, index) {
+      if (value === null || value === undefined) {
+        return null;
       }
-    } catch (err) {
-      _iterator3.e(err);
-    } finally {
-      _iterator3.f();
+      var num = Number(value);
+      if (!isFinite(num)) {
+        throw new StormTrackError("Track feature ".concat(index, ": ").concat(what, " value '").concat(value, "' is not a number"));
+      }
+      return num;
+    };
+    var points = [];
+    for (var f = 0; f < geojson.features.length; f++) {
+      var feature = geojson.features[f];
+      if (!feature.geometry || feature.geometry.type !== 'Point') {
+        continue;
+      }
+      var props = feature.properties || {};
+      var time = getProp(props, ['time', 'datetime', 'date', 'iso_time']);
+      if (time === null) {
+        continue;
+      }
+      var lon = toNumber(feature.geometry.coordinates[0], 'longitude', f);
+      var lat = toNumber(feature.geometry.coordinates[1], 'latitude', f);
+      if (lon === null || lat === null) {
+        throw new StormTrackError("Track feature ".concat(f, " is missing coordinates"));
+      }
+      if (Math.abs(lat) > 90 || Math.abs(lon) > 360) {
+        throw new StormTrackError("Track feature ".concat(f, " has out-of-range coordinates (").concat(lon, ", ").concat(lat, ")"));
+      }
+      points.push({
+        time: parseTrackTime(time),
+        lon: lon,
+        lat: lat,
+        vmax: toNumber(getProp(props, ['vmax', 'wind', 'max_wind', 'usa_wind']), 'vmax', f),
+        mslp: toNumber(getProp(props, ['mslp', 'pressure', 'pres', 'usa_pres']), 'mslp', f),
+        name: getProp(props, ['name', 'storm', 'storm_name'])
+      });
     }
     if (points.length < 2) {
       throw new StormTrackError('Storm track must contain at least two timestamped point features');
@@ -9446,11 +9504,11 @@
     positions.push(trackPositionAt(points, t1));
 
     // include the original fix positions inside the window
-    var _iterator4 = _createForOfIteratorHelper(points),
-      _step4;
+    var _iterator3 = _createForOfIteratorHelper(points),
+      _step3;
     try {
-      for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
-        var p = _step4.value;
+      for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
+        var p = _step3.value;
         var _t = p.time.getTime();
         if (_t > t0 && _t < t1) {
           positions.push({
@@ -9460,9 +9518,9 @@
         }
       }
     } catch (err) {
-      _iterator4.e(err);
+      _iterator3.e(err);
     } finally {
-      _iterator4.f();
+      _iterator3.f();
     }
     return positions;
   }
@@ -9687,23 +9745,42 @@
     // the storm comes within corral distance of the d01 boundary
     var corral = MIN_NEST_GRID_POINTS;
     var minEdgeCells = Infinity;
-    var _iterator5 = _createForOfIteratorHelper(result.xy),
-      _step5;
+    var _iterator4 = _createForOfIteratorHelper(result.xy),
+      _step4;
     try {
-      for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
-        var p = _step5.value;
+      for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
+        var p = _step4.value;
         var di = (p[0] - swX) / dx[0];
         var dj = (p[1] - swY) / dx[0];
         var half = span2 / 2;
         minEdgeCells = Math.min(minEdgeCells, di - half, dj - half, result.e_we1 - 1 - (di + half), result.e_sn1 - 1 - (dj + half));
       }
     } catch (err) {
-      _iterator5.e(err);
+      _iterator4.e(err);
     } finally {
-      _iterator5.f();
+      _iterator4.f();
     }
     if (minEdgeCells < corral) {
       warnings.push('The moving d02 approaches the d01 boundary closer than ' + "".concat(corral, " cells (minimum ").concat(minEdgeCells.toFixed(1), "); increase the buffer"));
+    }
+
+    // --- final sanity check ---------------------------------------------------
+    // every value that ends up in namelist.wps must be a finite number;
+    // catching it here gives a clear message instead of a deep projection error
+    var finite = function finite(value) {
+      return typeof value === 'number' && isFinite(value);
+    };
+    if (!finite(result.ref_lat) || !finite(result.ref_lon) || !finite(truelat1)) {
+      throw new StormTrackError('Domain calculation produced invalid projection parameters; ' + 'please check the track coordinates and time window');
+    }
+    for (var _i = 0, _domains = domains; _i < _domains.length; _i++) {
+      var d = _domains[_i];
+      if (!finite(d.e_we) || !finite(d.e_sn) || !finite(d.dx) || !Number.isInteger(d.i_parent_start) || !Number.isInteger(d.j_parent_start)) {
+        throw new StormTrackError("Domain calculation produced invalid values for d".concat(pad2(d.id), "; ") + 'please check the domain structure inputs');
+      }
+    }
+    if (result.e_we1 > 1500 || result.e_sn1 > 1500) {
+      warnings.push("d01 is very large (".concat(result.e_we1, " x ").concat(result.e_sn1, " cells); ") + 'consider a shorter simulation window, a coarser d01 dx, or a smaller buffer');
     }
     return {
       map_proj: WrfProjections.mercator,
@@ -9800,16 +9877,16 @@
       dx.push(dx[parentIds[i] - 1] / ratios[i]);
     }
     var domains = [];
-    for (var _i = 0; _i < maxDom; _i++) {
+    for (var _i2 = 0; _i2 < maxDom; _i2++) {
       domains.push({
-        id: _i + 1,
-        parent_id: parentIds[_i],
-        parent_grid_ratio: ratios[_i],
-        i_parent_start: iStarts[_i],
-        j_parent_start: jStarts[_i],
-        e_we: eWe[_i],
-        e_sn: eSn[_i],
-        dx: dx[_i]
+        id: _i2 + 1,
+        parent_id: parentIds[_i2],
+        parent_grid_ratio: ratios[_i2],
+        i_parent_start: iStarts[_i2],
+        j_parent_start: jStarts[_i2],
+        e_we: eWe[_i2],
+        e_sn: eSn[_i2],
+        dx: dx[_i2]
       });
     }
     return {
@@ -10375,10 +10452,10 @@
           buttonSaveNamelistWps.disabled = false;
           buttonSaveNamelistInput.disabled = false;
         } catch (error) {
-          if (error instanceof StormTrackError) {
-            errorMessageBox('Domain Setup Error', error.message);
-          } else {
-            throw error;
+          errorMessageBox('Domain Setup Error', error.message || String(error));
+          if (!(error instanceof StormTrackError)) {
+            // unexpected - keep details in the console for debugging
+            console.error(error);
           }
         }
       });

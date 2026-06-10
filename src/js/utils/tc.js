@@ -114,8 +114,22 @@ export function parseStormTrack(geojson) {
         return null;
     };
 
+    // coerce to number; null stays null, non-numeric values throw
+    const toNumber = (value, what, index) => {
+        if (value === null || value === undefined) {
+            return null;
+        }
+        const num = Number(value);
+        if (!isFinite(num)) {
+            throw new StormTrackError(
+                `Track feature ${index}: ${what} value '${value}' is not a number`);
+        }
+        return num;
+    };
+
     const points = [];
-    for (const feature of geojson.features) {
+    for (let f = 0; f < geojson.features.length; f++) {
+        const feature = geojson.features[f];
         if (!feature.geometry || feature.geometry.type !== 'Point') {
             continue;
         }
@@ -124,12 +138,23 @@ export function parseStormTrack(geojson) {
         if (time === null) {
             continue;
         }
+
+        const lon = toNumber(feature.geometry.coordinates[0], 'longitude', f);
+        const lat = toNumber(feature.geometry.coordinates[1], 'latitude', f);
+        if (lon === null || lat === null) {
+            throw new StormTrackError(`Track feature ${f} is missing coordinates`);
+        }
+        if (Math.abs(lat) > 90 || Math.abs(lon) > 360) {
+            throw new StormTrackError(
+                `Track feature ${f} has out-of-range coordinates (${lon}, ${lat})`);
+        }
+
         points.push({
             time: parseTrackTime(time),
-            lon: feature.geometry.coordinates[0],
-            lat: feature.geometry.coordinates[1],
-            vmax: getProp(props, ['vmax', 'wind', 'max_wind', 'usa_wind']),
-            mslp: getProp(props, ['mslp', 'pressure', 'pres', 'usa_pres']),
+            lon: lon,
+            lat: lat,
+            vmax: toNumber(getProp(props, ['vmax', 'wind', 'max_wind', 'usa_wind']), 'vmax', f),
+            mslp: toNumber(getProp(props, ['mslp', 'pressure', 'pres', 'usa_pres']), 'mslp', f),
             name: getProp(props, ['name', 'storm', 'storm_name'])
         });
     }
@@ -442,6 +467,30 @@ export function computeTCDomains(opts) {
         warnings.push(
             'The moving d02 approaches the d01 boundary closer than ' +
             `${corral} cells (minimum ${minEdgeCells.toFixed(1)}); increase the buffer`);
+    }
+
+    // --- final sanity check ---------------------------------------------------
+    // every value that ends up in namelist.wps must be a finite number;
+    // catching it here gives a clear message instead of a deep projection error
+    const finite = (value) => typeof value === 'number' && isFinite(value);
+    if (!finite(result.ref_lat) || !finite(result.ref_lon) || !finite(truelat1)) {
+        throw new StormTrackError(
+            'Domain calculation produced invalid projection parameters; ' +
+            'please check the track coordinates and time window');
+    }
+    for (const d of domains) {
+        if (!finite(d.e_we) || !finite(d.e_sn) || !finite(d.dx) ||
+            !Number.isInteger(d.i_parent_start) || !Number.isInteger(d.j_parent_start)) {
+            throw new StormTrackError(
+                `Domain calculation produced invalid values for d${pad2(d.id)}; ` +
+                'please check the domain structure inputs');
+        }
+    }
+
+    if (result.e_we1 > 1500 || result.e_sn1 > 1500) {
+        warnings.push(
+            `d01 is very large (${result.e_we1} x ${result.e_sn1} cells); ` +
+            'consider a shorter simulation window, a coarser d01 dx, or a smaller buffer');
     }
 
     return {
