@@ -3,6 +3,7 @@ import { StormTrackLayer } from "./leaflet/leaflet.layer.storm-track";
 import {
     computeTCDomains,
     createWPSNamelist,
+    layoutFromWPSNamelist,
     generateVortexFollowingNamelistInput,
     parseTrackTime,
     formatWpsDate,
@@ -57,12 +58,13 @@ export class SidebarTropicalCyclone {
         const divSummary = container.querySelector('#tc-summary');
         const divWarnings = container.querySelector('#tc-warnings');
         const buttonBuild = container.querySelector('#tc-build-domains');
+        const buttonSaveNamelistWps = container.querySelector('#tc-save-namelist-wps');
         const buttonSaveNamelistInput = container.querySelector('#tc-save-namelist-input');
 
         this._controls = {
             inputStart, inputEnd, stormName, stormPeriod, trackInfo, form,
             buttonRemove, divSummary, divWarnings, buttonSaveNamelistInput,
-            containerNestSizes, selectMaxDom
+            buttonSaveNamelistWps, containerNestSizes, selectMaxDom
         };
 
         $('[title]', $(container)).tooltip();
@@ -139,6 +141,7 @@ export class SidebarTropicalCyclone {
                 // load the computed layout into the regular Domains panel
                 this.sidebarDomains.loadNamelist(createWPSNamelist(layout));
 
+                buttonSaveNamelistWps.disabled = false;
                 buttonSaveNamelistInput.disabled = false;
             }
             catch (error) {
@@ -151,12 +154,27 @@ export class SidebarTropicalCyclone {
             }
         });
 
-        // --- namelist.input download -------------------------------------------
-        buttonSaveNamelistInput.addEventListener('click', () => {
-            if (!this.layout) {
+        // --- namelist.wps download ----------------------------------------------
+        // reuses the existing WPS pipeline: the namelist is read back from the
+        // domain currently shown in the Domains panel, so manual fine-tuning
+        // (resized/moved nests, dx changes, ...) is reflected in the download
+        buttonSaveNamelistWps.addEventListener('click', () => {
+            const ns = this._currentWPSNamelist();
+            if (!ns) {
                 return;
             }
-            const content = generateVortexFollowingNamelistInput(this.layout, {
+            saveAs(
+                new Blob([ns.toString()], { type: 'text/plain;charset=utf-8' }),
+                'namelist.wps');
+        });
+
+        // --- namelist.input download -------------------------------------------
+        buttonSaveNamelistInput.addEventListener('click', () => {
+            const layout = this._currentLayout();
+            if (!layout) {
+                return;
+            }
+            const content = generateVortexFollowingNamelistInput(layout, {
                 vortexInterval: parseInt(inputVortexInterval.value, 10) || 15,
                 maxVortexSpeed: parseInt(inputMaxVortexSpeed.value, 10) || 40,
                 corralDist: parseInt(inputCorralDist.value, 10) || 8
@@ -165,6 +183,46 @@ export class SidebarTropicalCyclone {
                 new Blob([content], { type: 'text/plain;charset=utf-8' }),
                 'namelist.input');
         });
+    }
+
+    /**
+     * Current WPS namelist: the (possibly hand-edited) domain from the
+     * Domains panel when available, otherwise the last computed layout.
+     * Simulation dates are taken from the TC panel.
+     * @returns {WPSNamelist|null}
+     */
+    _currentWPSNamelist() {
+        let ns = this.sidebarDomains.getNamelist();
+        if (!ns && this.layout) {
+            ns = createWPSNamelist(this.layout);
+        }
+        if (!ns) {
+            return null;
+        }
+        const start = this._readTime(this._controls.inputStart);
+        const end = this._readTime(this._controls.inputEnd);
+        if (start && end) {
+            const startDate = formatWpsDate(start);
+            const endDate = formatWpsDate(end);
+            ns.share.start_date = Array.from({ length: ns.share.max_dom }, () => startDate);
+            ns.share.end_date = Array.from({ length: ns.share.max_dom }, () => endDate);
+            ns.share.interval_seconds = ns.share.interval_seconds || 21600;
+        }
+        return ns;
+    }
+
+    /**
+     * Current TC layout, rebuilt from the live Domains panel state when
+     * available so namelist.input matches namelist.wps.
+     */
+    _currentLayout() {
+        const ns = this.sidebarDomains.getNamelist();
+        const start = this._readTime(this._controls.inputStart);
+        const end = this._readTime(this._controls.inputEnd);
+        if (ns && start && end) {
+            return layoutFromWPSNamelist(ns, start, end);
+        }
+        return this.layout;
     }
 
     // load a GeoJSON track string and display it
@@ -216,6 +274,7 @@ export class SidebarTropicalCyclone {
         this._controls.form.style.display = 'none';
         this._controls.buttonRemove.disabled = true;
         this._controls.buttonSaveNamelistInput.disabled = true;
+        this._controls.buttonSaveNamelistWps.disabled = true;
         this._controls.divSummary.style.display = 'none';
         this._controls.divWarnings.innerHTML = '';
     }

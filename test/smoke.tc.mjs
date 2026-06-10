@@ -74,6 +74,40 @@ check('three grids listed in domains panel', await page.evaluate(() =>
 check('namelist.input button enabled', await page.evaluate(() =>
     document.querySelector('#tc-save-namelist-input').disabled === false));
 
+check('namelist.wps button enabled', await page.evaluate(() =>
+    document.querySelector('#tc-save-namelist-wps').disabled === false));
+
+// namelist.wps download must reflect manual edits in the Domains panel
+const wpsDownload = await page.evaluate(async () => {
+    // simulate a manual edit: change d01 e_we through the Domains panel form
+    const input = document.querySelector('#grids .container-grid input[name="e_we"]');
+    const edited = parseInt(input.value, 10) + 2;
+    input.value = edited;
+    document.querySelector('#update-domain').click();
+    await new Promise(r => setTimeout(r, 500));
+
+    // intercept the blob the save button generates
+    let text = null;
+    const origCreate = URL.createObjectURL;
+    URL.createObjectURL = (blob) => { text = blob; return 'blob:smoke'; };
+    const origSaveAs = window.saveAs;
+    window.saveAs = () => {};
+    document.querySelector('#tc-save-namelist-wps').click();
+    await new Promise(r => setTimeout(r, 200));
+    URL.createObjectURL = origCreate;
+    window.saveAs = origSaveAs;
+
+    if (!text) return { ok: false };
+    const content = await text.text();
+    return {
+        ok: content.includes('&geogrid') &&
+            content.includes('mercator') &&
+            content.includes(`${edited}`) &&
+            content.includes('start_date')
+    };
+});
+check('namelist.wps download reflects Domains panel edits', wpsDownload.ok);
+
 // 4. click a track point and use "Set as end"
 await page.click('a[href="#tropical-cyclone"]');
 await sleep(300);

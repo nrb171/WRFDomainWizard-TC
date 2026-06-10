@@ -9,6 +9,7 @@ import {
     interpolateTrack,
     computeTCDomains,
     createWPSNamelist,
+    layoutFromWPSNamelist,
     generateVortexFollowingNamelistInput
 } from '../src/js/utils/tc';
 import { WrfProjection } from '../src/js/utils/wrf.projection';
@@ -274,6 +275,55 @@ describe('createWPSNamelist', () => {
         const text = ns.toString();
         expect(text).toContain('&geogrid');
         expect(text).toContain('mercator');
+    });
+});
+
+describe('layoutFromWPSNamelist', () => {
+    const points = parseStormTrack(mariaGeojson);
+    const layout = computeTCDomains({
+        track: points,
+        startTime: '2017-09-18 00:00:00',
+        endTime: '2017-09-21 00:00:00',
+        maxDom: 3,
+        dx01: 27000,
+        ratio: 3,
+        nestSizesKm: [1000, 550],
+        bufferCells: 10
+    });
+
+    test('round trips through createWPSNamelist', () => {
+        const ns = createWPSNamelist(layout);
+        const rebuilt = layoutFromWPSNamelist(ns, layout.startTime, layout.endTime);
+
+        expect(rebuilt.domains.length).toBe(layout.domains.length);
+        for (let i = 0; i < layout.domains.length; i++) {
+            expect(rebuilt.domains[i]).toEqual(layout.domains[i]);
+        }
+        expect(rebuilt.ref_lat).toBeCloseTo(layout.ref_lat);
+        expect(rebuilt.startTime.getTime()).toBe(layout.startTime.getTime());
+    });
+
+    test('reflects manual edits to the namelist', () => {
+        const ns = createWPSNamelist(layout);
+        // simulate a user resizing d03 in the Domains panel
+        ns.geogrid.e_we[2] = ns.geogrid.e_we[2] + 6;
+        ns.geogrid.i_parent_start[2] = ns.geogrid.i_parent_start[2] - 1;
+
+        const rebuilt = layoutFromWPSNamelist(ns, layout.startTime, layout.endTime);
+        expect(rebuilt.domains[2].e_we).toBe(layout.domains[2].e_we + 6);
+        expect(rebuilt.domains[2].i_parent_start).toBe(layout.domains[2].i_parent_start - 1);
+
+        // and the edited layout feeds straight into namelist.input generation
+        const text = generateVortexFollowingNamelistInput(rebuilt, {});
+        expect(text).toContain(`${rebuilt.domains[2].e_we}`);
+    });
+
+    test('derives nest grid spacing through the parent chain', () => {
+        const ns = createWPSNamelist(layout);
+        const rebuilt = layoutFromWPSNamelist(ns, layout.startTime, layout.endTime);
+        expect(rebuilt.domains[0].dx).toBeCloseTo(27000);
+        expect(rebuilt.domains[1].dx).toBeCloseTo(9000);
+        expect(rebuilt.domains[2].dx).toBeCloseTo(3000);
     });
 });
 

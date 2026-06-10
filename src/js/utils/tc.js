@@ -499,6 +499,62 @@ export function createWPSNamelist(layout) {
 }
 
 /**
+ * Build a TC layout object from an existing WPSNamelist - the inverse of
+ * createWPSNamelist. This allows the namelist.wps/namelist.input downloads
+ * to reflect any fine-tuning done in the regular Domains panel after the
+ * initial automatic layout, reusing the existing WPS code path.
+ *
+ * @param {WPSNamelist} ns
+ * @param {Date|string} startTime
+ * @param {Date|string} endTime
+ * @returns {object} layout compatible with generateVortexFollowingNamelistInput
+ */
+export function layoutFromWPSNamelist(ns, startTime, endTime) {
+
+    const asArray = (value) => Array.isArray(value) ? value : [value];
+
+    const parentIds = asArray(ns.geogrid.parent_id);
+    const ratios = asArray(ns.geogrid.parent_grid_ratio);
+    const iStarts = asArray(ns.geogrid.i_parent_start);
+    const jStarts = asArray(ns.geogrid.j_parent_start);
+    const eWe = asArray(ns.geogrid.e_we);
+    const eSn = asArray(ns.geogrid.e_sn);
+    const maxDom = ns.share.max_dom;
+
+    // grid spacing per domain, derived through the parent chain
+    const dx = [ns.geogrid.dx];
+    for (let i = 1; i < maxDom; i++) {
+        dx.push(dx[parentIds[i] - 1] / ratios[i]);
+    }
+
+    const domains = [];
+    for (let i = 0; i < maxDom; i++) {
+        domains.push({
+            id: i + 1,
+            parent_id: parentIds[i],
+            parent_grid_ratio: ratios[i],
+            i_parent_start: iStarts[i],
+            j_parent_start: jStarts[i],
+            e_we: eWe[i],
+            e_sn: eSn[i],
+            dx: dx[i]
+        });
+    }
+
+    return {
+        map_proj: ns.geogrid.map_proj,
+        ref_lat: ns.geogrid.ref_lat,
+        ref_lon: ns.geogrid.ref_lon,
+        truelat1: ns.geogrid.truelat1,
+        stand_lon: ns.geogrid.stand_lon,
+        startTime: parseTrackTime(startTime),
+        endTime: parseTrackTime(endTime),
+        domains: domains,
+        warnings: []
+    };
+}
+
+/**
  * Generate a namelist.input for a vortex-following moving nest simulation.
  *
  * Requires WRF compiled with moving nest support:

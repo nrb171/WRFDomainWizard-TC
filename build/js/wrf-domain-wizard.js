@@ -9772,6 +9772,60 @@
   }
 
   /**
+   * Build a TC layout object from an existing WPSNamelist - the inverse of
+   * createWPSNamelist. This allows the namelist.wps/namelist.input downloads
+   * to reflect any fine-tuning done in the regular Domains panel after the
+   * initial automatic layout, reusing the existing WPS code path.
+   *
+   * @param {WPSNamelist} ns
+   * @param {Date|string} startTime
+   * @param {Date|string} endTime
+   * @returns {object} layout compatible with generateVortexFollowingNamelistInput
+   */
+  function layoutFromWPSNamelist(ns, startTime, endTime) {
+    var asArray = function asArray(value) {
+      return Array.isArray(value) ? value : [value];
+    };
+    var parentIds = asArray(ns.geogrid.parent_id);
+    var ratios = asArray(ns.geogrid.parent_grid_ratio);
+    var iStarts = asArray(ns.geogrid.i_parent_start);
+    var jStarts = asArray(ns.geogrid.j_parent_start);
+    var eWe = asArray(ns.geogrid.e_we);
+    var eSn = asArray(ns.geogrid.e_sn);
+    var maxDom = ns.share.max_dom;
+
+    // grid spacing per domain, derived through the parent chain
+    var dx = [ns.geogrid.dx];
+    for (var i = 1; i < maxDom; i++) {
+      dx.push(dx[parentIds[i] - 1] / ratios[i]);
+    }
+    var domains = [];
+    for (var _i = 0; _i < maxDom; _i++) {
+      domains.push({
+        id: _i + 1,
+        parent_id: parentIds[_i],
+        parent_grid_ratio: ratios[_i],
+        i_parent_start: iStarts[_i],
+        j_parent_start: jStarts[_i],
+        e_we: eWe[_i],
+        e_sn: eSn[_i],
+        dx: dx[_i]
+      });
+    }
+    return {
+      map_proj: ns.geogrid.map_proj,
+      ref_lat: ns.geogrid.ref_lat,
+      ref_lon: ns.geogrid.ref_lon,
+      truelat1: ns.geogrid.truelat1,
+      stand_lon: ns.geogrid.stand_lon,
+      startTime: parseTrackTime(startTime),
+      endTime: parseTrackTime(endTime),
+      domains: domains,
+      warnings: []
+    };
+  }
+
+  /**
    * Generate a namelist.input for a vortex-following moving nest simulation.
    *
    * Requires WRF compiled with moving nest support:
@@ -10226,6 +10280,7 @@
       var divSummary = container.querySelector('#tc-summary');
       var divWarnings = container.querySelector('#tc-warnings');
       var buttonBuild = container.querySelector('#tc-build-domains');
+      var buttonSaveNamelistWps = container.querySelector('#tc-save-namelist-wps');
       var buttonSaveNamelistInput = container.querySelector('#tc-save-namelist-input');
       this._controls = {
         inputStart: inputStart,
@@ -10238,6 +10293,7 @@
         divSummary: divSummary,
         divWarnings: divWarnings,
         buttonSaveNamelistInput: buttonSaveNamelistInput,
+        buttonSaveNamelistWps: buttonSaveNamelistWps,
         containerNestSizes: containerNestSizes,
         selectMaxDom: selectMaxDom
       };
@@ -10316,6 +10372,7 @@
 
           // load the computed layout into the regular Domains panel
           _this.sidebarDomains.loadNamelist(createWPSNamelist(layout));
+          buttonSaveNamelistWps.disabled = false;
           buttonSaveNamelistInput.disabled = false;
         } catch (error) {
           if (error instanceof StormTrackError) {
@@ -10326,12 +10383,27 @@
         }
       });
 
-      // --- namelist.input download -------------------------------------------
-      buttonSaveNamelistInput.addEventListener('click', function () {
-        if (!_this.layout) {
+      // --- namelist.wps download ----------------------------------------------
+      // reuses the existing WPS pipeline: the namelist is read back from the
+      // domain currently shown in the Domains panel, so manual fine-tuning
+      // (resized/moved nests, dx changes, ...) is reflected in the download
+      buttonSaveNamelistWps.addEventListener('click', function () {
+        var ns = _this._currentWPSNamelist();
+        if (!ns) {
           return;
         }
-        var content = generateVortexFollowingNamelistInput(_this.layout, {
+        FileSaver_minExports.saveAs(new Blob([ns.toString()], {
+          type: 'text/plain;charset=utf-8'
+        }), 'namelist.wps');
+      });
+
+      // --- namelist.input download -------------------------------------------
+      buttonSaveNamelistInput.addEventListener('click', function () {
+        var layout = _this._currentLayout();
+        if (!layout) {
+          return;
+        }
+        var content = generateVortexFollowingNamelistInput(layout, {
           vortexInterval: parseInt(inputVortexInterval.value, 10) || 15,
           maxVortexSpeed: parseInt(inputMaxVortexSpeed.value, 10) || 40,
           corralDist: parseInt(inputCorralDist.value, 10) || 8
@@ -10342,8 +10414,60 @@
       });
     }
 
-    // load a GeoJSON track string and display it
+    /**
+     * Current WPS namelist: the (possibly hand-edited) domain from the
+     * Domains panel when available, otherwise the last computed layout.
+     * Simulation dates are taken from the TC panel.
+     * @returns {WPSNamelist|null}
+     */
     return _createClass(SidebarTropicalCyclone, [{
+      key: "_currentWPSNamelist",
+      value: function _currentWPSNamelist() {
+        var ns = this.sidebarDomains.getNamelist();
+        if (!ns && this.layout) {
+          ns = createWPSNamelist(this.layout);
+        }
+        if (!ns) {
+          return null;
+        }
+        var start = this._readTime(this._controls.inputStart);
+        var end = this._readTime(this._controls.inputEnd);
+        if (start && end) {
+          var startDate = formatWpsDate(start);
+          var endDate = formatWpsDate(end);
+          ns.share.start_date = Array.from({
+            length: ns.share.max_dom
+          }, function () {
+            return startDate;
+          });
+          ns.share.end_date = Array.from({
+            length: ns.share.max_dom
+          }, function () {
+            return endDate;
+          });
+          ns.share.interval_seconds = ns.share.interval_seconds || 21600;
+        }
+        return ns;
+      }
+
+      /**
+       * Current TC layout, rebuilt from the live Domains panel state when
+       * available so namelist.input matches namelist.wps.
+       */
+    }, {
+      key: "_currentLayout",
+      value: function _currentLayout() {
+        var ns = this.sidebarDomains.getNamelist();
+        var start = this._readTime(this._controls.inputStart);
+        var end = this._readTime(this._controls.inputEnd);
+        if (ns && start && end) {
+          return layoutFromWPSNamelist(ns, start, end);
+        }
+        return this.layout;
+      }
+
+      // load a GeoJSON track string and display it
+    }, {
       key: "_loadTrack",
       value: function _loadTrack(text) {
         var _this2 = this;
@@ -10389,6 +10513,7 @@
         this._controls.form.style.display = 'none';
         this._controls.buttonRemove.disabled = true;
         this._controls.buttonSaveNamelistInput.disabled = true;
+        this._controls.buttonSaveNamelistWps.disabled = true;
         this._controls.divSummary.style.display = 'none';
         this._controls.divWarnings.innerHTML = '';
       }
@@ -31880,6 +32005,16 @@
       buttonNew.on('click', function (e) {
         initNewDomain();
       });
+
+      /**
+       * Return a WPSNamelist representing the current state of the
+       * domain on the map (including any manual edits), or null when
+       * no domain is loaded. Used by the Tropical Cyclone panel.
+       * @returns {WPSNamelist|null}
+       */
+      this.getNamelist = function () {
+        return domain ? domain.getWPSNamelist() : null;
+      };
 
       /**
        * Load a WPSNamelist object programmatically (used by the

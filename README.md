@@ -13,8 +13,9 @@ The fork adds a *Tropical Cyclone* sidebar tab (wind icon) that streamlines TC d
    - d02 starts centered on the storm position at the start time and is intended to follow the vortex during the run;
    - d03 and deeper are exactly centered inside their parents (they move with d02 as a stack);
    - d01 is automatically positioned and sized (Mercator projection) so the moving d02...dN stack **always stays inside it along the prescribed track**, with the requested buffer; the closest approach of d02 to the d01 boundary is reported;
-   - the resulting layout is loaded into the regular *Domains* panel where it can be inspected, fine-tuned, and saved as `namelist.wps`.
-5. **namelist.input** downloads a vortex-following `namelist.input` template with the computed grid structure plus `vortex_interval`, `max_vortex_speed`, `corral_dist`, and `track_level` settings. Note that WRF must be compiled with moving-nest/vortex-following support (`-DMOVE_NESTS -DVORTEX_CENTER`), and the `&physics` section should be reviewed before use.
+   - the resulting layout is loaded into the regular *Domains* panel where it can be inspected and fine-tuned.
+5. **namelist.wps** downloads the WPS namelist directly from the TC panel. The download is read back from the domain currently shown in the *Domains* panel, so any manual fine-tuning (moved or resized nests, dx changes, ...) is included, along with the simulation start/end dates from the TC panel.
+6. **namelist.input** downloads a vortex-following `namelist.input` template with the same (possibly fine-tuned) grid structure plus `vortex_interval`, `max_vortex_speed`, `corral_dist`, and `track_level` settings. Note that WRF must be compiled with moving-nest/vortex-following support (`-DMOVE_NESTS -DVORTEX_CENTER`), and the `&physics` section should be reviewed before use.
 
 ### Running locally
 

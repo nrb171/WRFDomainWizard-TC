@@ -325,6 +325,16 @@ export class SidebarDomains {
         });
 
         /**
+         * Return a WPSNamelist representing the current state of the
+         * domain on the map (including any manual edits), or null when
+         * no domain is loaded. Used by the Tropical Cyclone panel.
+         * @returns {WPSNamelist|null}
+         */
+        this.getNamelist = function () {
+            return domain ? domain.getWPSNamelist() : null;
+        };
+
+        /**
          * Load a WPSNamelist object programmatically (used by the
          * Tropical Cyclone panel) and draw its domains.
          * @param {WPSNamelist} namelist
